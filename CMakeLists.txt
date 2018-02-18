@@ -1,0 +1,29 @@
+cmake_minimum_required(VERSION 3.0.0)
+
+SET(TARGET_NAME tramapoline)
+
+project(${TARGET_NAME} LANGUAGES CXX)
+
+SET(INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/tramapoline)
+
+SET(HEADERS ${HEADERS} 
+	${INC_DIR}/hash.h
+	${INC_DIR}/static_string.h
+	${INC_DIR}/tramapoline.h
+)
+
+SET(SRC ${SRC}
+	dummy.cpp
+)
+
+SOURCE_GROUP("include" FILES ${HEADERS})
+SOURCE_GROUP("src" FILES ${SRC})
+
+ADD_LIBRARY(${TARGET_NAME} ${HEADERS} ${SRC})
+TARGET_SOURCES(${TARGET_NAME} PRIVATE ${HEADERS})
+
+TARGET_INCLUDE_DIRECTORIES(
+    ${TARGET_NAME}
+    INTERFACE
+	${CMAKE_CURRENT_SOURCE_DIR}/include
+)
