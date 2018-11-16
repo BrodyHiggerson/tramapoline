@@ -23,6 +23,16 @@ struct RawTypeConstruction
 	}
 };
 
+template<bool TSerialize, typename StreamType, typename T>
+struct VirtualSerializer
+{
+public:
+	static void Serialize(StreamType& a_stream, T& a_type, size_t VOffset)
+	{
+		a_stream.Serialize(TSerialize, (char*)(&a_type) + VOffset, static_cast<const unsigned int>(sizeof(T) - VOffset));
+	}
+};
+
 template <typename BaseType, typename StreamType, size_t VOffset = 0,
 	template<typename SerialType> class ConstructPolicy = RawTypeConstruction>
 class VirtualSerialization
@@ -131,16 +141,6 @@ private:
 
 	std::map<TypeHash, std::unique_ptr<typename Detail<BaseType, StreamType>::CallableBase>> m_serializers;
 	std::unordered_map<std::type_index, TypeHash> m_typeInfoToTypeHash;
-};
-
-template<bool TSerialize, typename StreamType, typename T>
-struct VirtualSerializer
-{
-public:
-	static void Serialize(StreamType& a_stream, T& a_type, size_t VOffset)
-	{
-		a_stream.Serialize(TSerialize, (char*)(&a_type) + VOffset, static_cast<const unsigned int>(sizeof(T) - VOffset));
-	}
 };
 
 } // namespace tramapoline
