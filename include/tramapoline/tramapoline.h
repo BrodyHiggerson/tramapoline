@@ -29,6 +29,7 @@ struct VirtualSerializer
 public:
 	static void Serialize(StreamType& a_stream, T& a_type, size_t VOffset)
 	{
+		static_assert(std::is_trivially_copyable_v<T>, "Type is not trivially-copyable. Implement VirtualSerializer::Serialize for type T");
 		a_stream.Serialize(TSerialize, (char*)(&a_type) + VOffset, static_cast<const unsigned int>(sizeof(T) - VOffset));
 	}
 };
