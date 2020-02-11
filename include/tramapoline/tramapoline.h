@@ -50,6 +50,8 @@ private:
 	{
 		struct CallableBase
 		{
+			virtual ~CallableBase() = default;
+
 			virtual BaseType* Deserialize(StreamType& a_stream) = 0;
 			virtual void Serialize(const BaseType* a_baseData, StreamType& a_outStream) = 0;
 		};
