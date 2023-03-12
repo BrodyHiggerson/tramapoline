@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <cstring>
 
-#include "Utility/hash.h"
+#include "tramapoline/hash.h"
 
 #ifndef _MSC_VER
 #  if __cplusplus < 201103

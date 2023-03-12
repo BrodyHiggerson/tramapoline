@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Utility\static_string.h"
+#include "tramapoline\static_string.h"
 
 #include <stdint.h>
 #include <map>
@@ -14,9 +14,9 @@ namespace tramapoline
 
 using TypeHash = uint32_t;
 
-template <typename SerialType>
 struct RawTypeConstruction
 {
+	template <typename SerialType>
 	static SerialType* Construct()
 	{
 		return new SerialType{};
@@ -35,17 +35,25 @@ public:
 };
 
 template <typename BaseType, typename StreamType, size_t VOffset = 0,
-	template<typename SerialType> class ConstructPolicy = RawTypeConstruction>
+	class ConstructPolicy = RawTypeConstruction>
 class VirtualSerialization
 {
 public:
-	static VirtualSerialization& Get() {
-		static VirtualSerialization s;
-		return s;
+	using ConstructPolicyType = typename ConstructPolicy;
+
+	// The policy isn't just static func since it can have state, e.g. some world/target
+	VirtualSerialization(ConstructPolicyType constructPolicy)
+		: constructPolicy_(constructPolicy)
+	{
+
 	}
 
+	~VirtualSerialization() = default;
+
 private:
-	template <typename BaseType, typename StreamType>
+	ConstructPolicyType constructPolicy_;
+
+	template <typename BaseType, typename StreamType, typename ConstructionPolicy>
 	struct Detail
 	{
 		struct CallableBase
@@ -59,6 +67,10 @@ private:
 		template <typename SerialType>
 		struct AutoSerializer : CallableBase
 		{
+			// We have to pass the policy in at ctor time since the virtual methods below can't be templated
+			AutoSerializer(ConstructionPolicy& constructionPolicy)
+				: constructionPolicy_(constructionPolicy) {}
+
 			void Serialize(const BaseType* a_baseData, StreamType& a_outStream)
 			{
 				static_assert(std::is_base_of_v<BaseType, SerialType>, "The type must be a subclass");
@@ -71,19 +83,21 @@ private:
 			{
 				static_assert(std::is_base_of_v<BaseType, SerialType>, "The type must be a subclass");
 
-				BaseType* type = typename ConstructPolicy<SerialType>::Construct();
+				BaseType* type = constructionPolicy_.Construct<SerialType>();
 				VirtualSerializer<false, StreamType, SerialType>::
 					Serialize(a_stream, *static_cast<SerialType*>(type), 8);
 				return type;
 			}
 
+			ConstructionPolicy& constructionPolicy_;
+
 			//ConstructionCallable m_constructionCallable;
 		};
 
-		template<typename SerialType>
-		static auto CreateSerializer()
+		template<typename SerialType, typename ConstructPolicy>
+		static auto CreateSerializer(ConstructPolicy& constructPolicy)
 		{
-			return std::make_unique<AutoSerializer<SerialType>>();
+			return std::make_unique<AutoSerializer<SerialType>>(constructPolicy);
 		}
 	};
 
@@ -94,7 +108,7 @@ public:
 		TypeHash hash = hash_of<SerialType>();
 		assert(m_serializers.find(hash) == m_serializers.end() && "Type should be registered once");
 
-		auto serializer = Detail<BaseType, StreamType>::template CreateSerializer<SerialType>();
+		auto serializer = Detail<BaseType, StreamType, ConstructPolicy>::template CreateSerializer<SerialType>(constructPolicy_);
 		m_serializers.emplace(hash, std::move(serializer));
 
 		m_typeInfoToTypeHash.insert({ (typeid(SerialType)), hash });
@@ -109,12 +123,11 @@ public:
 		if (it != m_serializers.end())
 		{
 			auto callable = (it)->second.get();
-			std::invoke(&Detail<BaseType, StreamType>::CallableBase::Serialize, callable, a_baseType, a_outStream);
+			std::invoke(&Detail<BaseType, StreamType, ConstructPolicy>::CallableBase::Serialize, callable, a_baseType, a_outStream);
 		}
 		else
 		{
-			throw std::runtime_error("No deserializer found for event hash '%u'. Did you inherit"
-				"from ISpaceEvent<EventType>?");
+			throw std::runtime_error("No serializer found for event hash '%u'. Did you remember to call RegisterType<T>?\n");
 		}
 	}
 
@@ -127,22 +140,19 @@ public:
 		if (it != m_serializers.end())
 		{
 			auto callable = (it)->second.get();
-			BaseType* evt = std::invoke(&Detail<BaseType, StreamType>::CallableBase::Deserialize, callable, a_stream);
+			BaseType* evt = std::invoke(&Detail<BaseType, StreamType, ConstructPolicy>::CallableBase::Deserialize, callable, a_stream);
 			return evt;
 		}
 		else
 		{
-			printf("No deserializer found for event hash '%u'. Did you inherit from ISpaceEvent<EventType>?\n", hash);
+			printf("No deserializer found for event hash '%u'. Did you remember to call RegisterType<T>\n", hash);
 		}
 
 		return nullptr;
 	}
 
 private:
-	VirtualSerialization() = default;
-	~VirtualSerialization() = default;
-
-	std::map<TypeHash, std::unique_ptr<typename Detail<BaseType, StreamType>::CallableBase>> m_serializers;
+	std::map<TypeHash, std::unique_ptr<typename Detail<BaseType, StreamType, ConstructPolicy>::CallableBase>> m_serializers;
 	std::unordered_map<std::type_index, TypeHash> m_typeInfoToTypeHash;
 };
 
