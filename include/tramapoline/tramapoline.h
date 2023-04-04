@@ -106,7 +106,11 @@ public:
 	void RegisterType(/*ConstructionCallable a_constructionCallable = std::function<SerialType*()>()*/)
 	{
 		TypeHash hash = hash_of<SerialType>();
-		assert(m_serializers.find(hash) == m_serializers.end() && "Type should be registered once");
+		if (m_serializers.find(hash) != m_serializers.end())
+		{
+			// Already registered
+			return;
+		}
 
 		auto serializer = Detail<BaseType, StreamType, ConstructPolicy>::template CreateSerializer<SerialType>(constructPolicy_);
 		m_serializers.emplace(hash, std::move(serializer));
