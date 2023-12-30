@@ -39,10 +39,8 @@ template <typename BaseType, typename StreamType, size_t VOffset = 0,
 class VirtualSerialization
 {
 public:
-	using ConstructPolicyType = typename ConstructPolicy;
-
 	// The policy isn't just static func since it can have state, e.g. some world/target
-	VirtualSerialization(ConstructPolicyType constructPolicy)
+	VirtualSerialization(ConstructPolicy constructPolicy)
 		: constructPolicy_(constructPolicy)
 	{
 
@@ -51,7 +49,7 @@ public:
 	~VirtualSerialization() = default;
 
 private:
-	ConstructPolicyType constructPolicy_;
+	ConstructPolicy constructPolicy_;
 
 	template <typename BaseType, typename StreamType, typename ConstructionPolicy>
 	struct Detail
@@ -83,7 +81,7 @@ private:
 			{
 				static_assert(std::is_base_of_v<BaseType, SerialType>, "The type must be a subclass");
 
-				BaseType* type = constructionPolicy_.Construct<SerialType>();
+				BaseType* type = constructionPolicy_.template Construct<SerialType>();
 				VirtualSerializer<false, StreamType, SerialType>::
 					Serialize(a_stream, *static_cast<SerialType*>(type), 8);
 				return type;
